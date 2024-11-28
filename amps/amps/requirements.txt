@@ -1,0 +1,14 @@
+flask==3.0.3
+flask-cors==5.0.0
+Bio==1.7.1
+tensorflow==2.8.4
+tqdm==4.66.0
+transformers==4.31.0
+PyYAML==6.0
+attention==5.0.0
+modlamp==4.3.0
+rdkit==2023.03.1
+fcd_torch
+NumPy==1.23.5
+nanoid==2.0.0
+openpyxl
