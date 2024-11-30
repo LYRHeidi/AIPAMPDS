@@ -1,5 +1,4 @@
 import datetime
-
 import yaml
 
 from func.one.model.networklstm import create_model
@@ -13,7 +12,7 @@ import os
 
 
 class AmpData():
-    def __init__(self, df, tokenizer_name='./func/one/prot_bert_bfd', max_len=300):
+    def __init__(self, df, tokenizer_name='Rostlab/prot_bert_bfd', max_len=300):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, do_lower_case=False)
         self.max_len = max_len
         self.df = df
@@ -62,16 +61,24 @@ def test(model, dataloader, device):
     allsequences = []
     print('dataloader')
     for batch in tqdm(dataloader):
-
         inputs = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
 
         with torch.inference_mode():
             logits = model(inputs, attention_mask).squeeze()
 
-        predvalues.extend(logits.cpu().tolist())
+        if logits.dim() == 0:
+            predvalues.append(logits.item())
+        else:
+            predvalues.extend(logits.cpu().tolist())
+
+        # predvalues.extend(logits.cpu().tolist())
         preds = torch.where(logits > 0.5, 1, 0)
-        predictions.extend(preds.cpu().tolist())
+        if preds.dim() == 0:  # 如果 preds 是标量
+            predictions.append(preds.item())  # 提取标量值并存储到 predictions
+        else:  # 如果 preds 是张量
+            predictions.extend(preds.cpu().tolist())
+        # predictions.extend(preds.cpu().tolist())
 
     return predvalues, predictions
 
@@ -79,25 +86,18 @@ def test(model, dataloader, device):
 def for_one(fa_path):
     # print(f'{"=" * 30}{"BEGAIN":^20}{"=" * 3}')
 
-
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(torch.cuda.is_available())
+    map_ll = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    device = torch.device(map_ll)
     print('Device: {}\n'.format(device))
 
     config = yaml.load(open('./config/config-test.yaml', 'r'), Loader=yaml.FullLoader)
     config['device'] = device
-
-    # filepath = '/data3/lyr/project_AMP_pre/PeptideBERT-master-copy/test.csv'
-    # filepath = sys.argv[1]
     filepath = fa_path
     basefile = os.path.basename(filepath)
     dirname = os.path.splitext(basefile)[0]
-
-    # input csv
-    # testdf = pd.read_csv(filepath)
-    # testdf.columns = ['sequence']
-
-    # input fasta
+    
     print('read file')
     print(datetime.datetime.now())
     with open(filepath) as fa:
@@ -160,6 +160,7 @@ def for_one(fa_path):
     ################################################################################
     if not config['debug']:
         map_l = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        print(map_l)
         model.load_state_dict(torch.load('{}/model.pt'.format(save_dir), map_location=map_l)['model_state_dict'],
                               strict=False)
         # model.load_state_dict(torch.load('{}/model.pt'.format(save_dir), map_location='cpu')['model_state_dict'], strict=False)
@@ -183,3 +184,4 @@ def for_one(fa_path):
     testdf.to_csv('./result/{}_pred_result.csv'.format(dirname), index=False)
     print('Model saved in: ', './result/{}_pred_result.csv'.format(dirname))
     return data
+
